@@ -1,0 +1,4 @@
+GET /interview  -> interviewController.getInterview
+POST /interview -> interviewController.createInterview
+GET /results    -> resultsController.getResults
+POST /results   -> resultsController.submitResults
