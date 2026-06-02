@@ -1,8 +1,5 @@
 import { Router } from 'express';
-import ResultsController from '../controllers/resultsController';
-
-const router = Router();
-const resultsController = new ResultsController();
+import resultsController from '../controllers/resultsController';
 
 export const setResultsRoutes = (app: Router) => {
   app.get('/results', resultsController.getResults.bind(resultsController));
