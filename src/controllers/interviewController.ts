@@ -1,30 +1,19 @@
 import { Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { InterviewSession, Message, sessions, sessionMessages } from '../models/interviewSession';
+import Groq from 'groq-sdk';
 
-const questions: Record<string, Record<string, string[]>> = {
-  "Frontend Developer": {
-    "React": [
-      "Tell me about yourself.",
-      "Describe a React project you built.",
-      "Explain React hooks.",
-      "How does state management work?",
-      "Any questions for me?"
-    ]
-  },
-  "Backend Developer": {
-    "Node.js": [
-      "Tell me about yourself.",
-      "Explain the event loop.",
-      "What is middleware?",
-      "How would you design an API?",
-      "Any questions for me?"
-    ]
-  }
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+const getSystemPrompt = (role: string, keyFocusArea: string, difficulty: string) => {
+    return `You are an expert technical interviewer for a ${role} position focusing on ${keyFocusArea}. The difficulty level is ${difficulty}. 
+Ask clear, concise, and professional interview questions. 
+Evaluate the candidate's answers and ask follow-up questions if necessary, or move on to the next topic. 
+Only ask one question at a time. Do not provide the answer to your own questions. Keep your responses brief and conversational.`;
 };
 
 class InterviewController {
-  public startInterview(req: Request, res: Response): void {
+  public async startInterview(req: Request, res: Response): Promise<void> {
     const { role, keyFocusArea, difficulty } = req.body;
     
     // Validate request
@@ -33,43 +22,52 @@ class InterviewController {
       return;
     }
 
-    const availableQuestions = questions[role]?.[keyFocusArea];
-    if (!availableQuestions) {
-      res.status(400).json({ error: 'No questions available for this role and focus area combination.' });
-      return;
-    }
-
     const interviewId = uuidv4();
-    const firstQuestion = availableQuestions[0];
+    const sessionDifficulty = difficulty || 'Intermediate';
     
     const session: InterviewSession = {
       interviewId,
       currentQuestionNumber: 0,
-      totalQuestions: availableQuestions.length,
+      totalQuestions: 5, // A limit of 5 questions for the session
       role,
       keyFocusArea,
-      difficulty: difficulty || 'Intermediate',
+      difficulty: sessionDifficulty,
       status: 'active'
     };
 
     sessions[interviewId] = session;
-    
-    // Store the first message
-    sessionMessages[interviewId] = [
-      {
-        id: uuidv4(),
-        role: 'assistant',
-        content: firstQuestion
-      }
-    ];
 
-    res.json({
-      interviewId,
-      firstQuestion
-    });
+    try {
+        const chatCompletion = await groq.chat.completions.create({
+            messages: [
+                { role: 'system', content: getSystemPrompt(role, keyFocusArea, sessionDifficulty) },
+                { role: 'user', content: 'Hi, I am ready for the interview. Please ask the first question.' }
+            ],
+            model: 'openai/gpt-oss-120b',
+        });
+
+        const firstQuestion = chatCompletion.choices[0]?.message?.content || 'Could you please introduce yourself?';
+
+        // Store the first message
+        sessionMessages[interviewId] = [
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content: firstQuestion
+          }
+        ];
+
+        res.json({
+          interviewId,
+          firstQuestion
+        });
+    } catch (error) {
+        console.error('Error starting interview:', error);
+        res.status(500).json({ error: 'Failed to generate interview question' });
+    }
   }
 
-  public respondInterview(req: Request, res: Response): void {
+  public async respondInterview(req: Request, res: Response): Promise<void> {
     const { interviewId, answer } = req.body;
 
     if (!interviewId || !answer) {
@@ -106,20 +104,37 @@ class InterviewController {
       return;
     }
 
-    // Generate next question
-    const availableQuestions = questions[session.role]?.[session.keyFocusArea];
-    const nextQuestion = availableQuestions[session.currentQuestionNumber];
+    try {
+        const history = sessionMessages[interviewId].map(msg => ({
+            role: msg.role as 'user' | 'assistant',
+            content: msg.content
+        }));
 
-    // Store the next question in history
-    sessionMessages[interviewId].push({
-      id: uuidv4(),
-      role: 'assistant',
-      content: nextQuestion
-    });
+        const chatCompletion = await groq.chat.completions.create({
+            messages: [
+                { role: 'system', content: getSystemPrompt(session.role, session.keyFocusArea, session.difficulty) },
+                { role: 'user', content: 'Hi, I am ready for the interview. Please ask the first question.' },
+                ...history
+            ],
+            model: 'openai/gpt-oss-120b',
+        });
 
-    res.json({
-      nextQuestion
-    });
+        const nextQuestion = chatCompletion.choices[0]?.message?.content || 'Thank you. Let us move to the next question.';
+
+        // Store the next question in history
+        sessionMessages[interviewId].push({
+          id: uuidv4(),
+          role: 'assistant',
+          content: nextQuestion
+        });
+
+        res.json({
+          nextQuestion
+        });
+    } catch (error) {
+        console.error('Error in respondInterview:', error);
+        res.status(500).json({ error: 'Failed to generate next question' });
+    }
   }
 }
 
