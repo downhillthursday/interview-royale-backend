@@ -124,9 +124,16 @@ class SessionController {
         });
 
         const feedbackText = feedbackCompletion.choices[0]?.message?.content || '';
-        const { score, summary, strengths, weaknesses } = this.parseFeedback(feedbackText);
+        const { score, scores, summary, strengths, weaknesses } = this.parseFeedback(feedbackText);
 
         session.overallScore = score;
+        session.scores = scores || {
+          technical: score / 10,
+          communication: score / 10,
+          problemSolving: score / 10,
+          confidence: score / 10,
+          systemDesign: score / 10
+        };
         session.summary = summary;
         session.strengths = strengths;
         session.weaknesses = weaknesses;
@@ -135,6 +142,13 @@ class SessionController {
         // Continue without AI feedback - use basic scoring
         const basicScore = this.calculateBasicScore(session.questionsAnswers);
         session.overallScore = basicScore;
+        session.scores = {
+          technical: basicScore / 10,
+          communication: basicScore / 10,
+          problemSolving: basicScore / 10,
+          confidence: basicScore / 10,
+          systemDesign: basicScore / 10
+        };
         session.summary = `Interview completed with ${session.questionsAnswers.length} questions answered.`;
         session.strengths = ['Completed interview'];
         session.weaknesses = [];
@@ -183,6 +197,13 @@ ${qa}
 Please evaluate this interview and provide feedback in the following JSON format:
 {
   "score": <number 0-100>,
+  "scores": {
+    "technical": <number 0-10>,
+    "communication": <number 0-10>,
+    "problemSolving": <number 0-10>,
+    "confidence": <number 0-10>,
+    "systemDesign": <number 0-10>
+  },
   "summary": "<one paragraph summary>",
   "strengths": ["<strength 1>", "<strength 2>", ...],
   "weaknesses": ["<weakness 1>", "<weakness 2>", ...]
@@ -206,6 +227,13 @@ Provide ONLY the JSON response, no additional text.`;
     // Fallback if parsing fails
     return {
       score: 75,
+      scores: {
+        technical: 7.5,
+        communication: 7.5,
+        problemSolving: 7.5,
+        confidence: 7.5,
+        systemDesign: 7.5
+      },
       summary: feedbackText || 'Interview completed',
       strengths: ['Answered all questions'],
       weaknesses: []

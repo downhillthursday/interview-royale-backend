@@ -17,6 +17,13 @@ export interface IInterviewSession extends Document {
   startedAt: Date;
   completedAt?: Date;
   overallScore?: number;
+  scores?: {
+    technical: number;
+    communication: number;
+    problemSolving: number;
+    confidence: number;
+    systemDesign: number;
+  };
   summary?: string;
   strengths?: string[];
   weaknesses?: string[];
@@ -43,6 +50,13 @@ const interviewSessionSchema = new Schema<IInterviewSession>(
     startedAt: { type: Date, default: Date.now },
     completedAt: { type: Date },
     overallScore: { type: Number },
+    scores: {
+      technical: { type: Number },
+      communication: { type: Number },
+      problemSolving: { type: Number },
+      confidence: { type: Number },
+      systemDesign: { type: Number }
+    },
     summary: { type: String },
     strengths: [{ type: String }],
     weaknesses: [{ type: String }],
