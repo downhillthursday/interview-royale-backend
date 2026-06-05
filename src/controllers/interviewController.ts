@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { InterviewSession, Message, sessions, sessionMessages } from '../models/interviewSession';
+import { InterviewSessionModel } from '../models/InterviewSessionModel';
 import Groq from 'groq-sdk';
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
@@ -14,7 +15,7 @@ Only ask one question at a time. Do not provide the answer to your own questions
 
 class InterviewController {
   public async startInterview(req: Request, res: Response): Promise<void> {
-    const { role, keyFocusArea, difficulty } = req.body;
+    const { role, keyFocusArea, difficulty, userId } = req.body;
     
     // Validate request
     if (!role || !keyFocusArea) {
@@ -24,6 +25,7 @@ class InterviewController {
 
     const interviewId = uuidv4();
     const sessionDifficulty = difficulty || 'Intermediate';
+    const sessionUserId = userId || `guest-${uuidv4()}`;
     
     const session: InterviewSession = {
       interviewId,
@@ -57,8 +59,22 @@ class InterviewController {
           }
         ];
 
+        // Create MongoDB session record
+        const dbSession = new InterviewSessionModel({
+          sessionId: interviewId,
+          userId: sessionUserId,
+          role,
+          keyFocusArea,
+          difficulty: sessionDifficulty,
+          status: 'active',
+          questionsAnswers: []
+        });
+
+        await dbSession.save();
+
         res.json({
           interviewId,
+          sessionId: interviewId,
           firstQuestion
         });
     } catch (error) {
@@ -98,8 +114,26 @@ class InterviewController {
     // Check if interview should end
     if (session.currentQuestionNumber >= session.totalQuestions) {
       session.status = 'completed';
+      
+      // Save the conversation to MongoDB
+      const messages = sessionMessages[interviewId];
+      const questionsAnswers = this.extractQuestionsAnswers(messages);
+      
+      try {
+        await InterviewSessionModel.updateOne(
+          { sessionId: interviewId },
+          { 
+            questionsAnswers,
+            status: 'active' // Keep as active until completion endpoint is called
+          }
+        );
+      } catch (dbError) {
+        console.error('Error saving interview progress:', dbError);
+      }
+
       res.json({
-        status: 'completed'
+        status: 'completed',
+        sessionId: interviewId
       });
       return;
     }
@@ -129,12 +163,42 @@ class InterviewController {
         });
 
         res.json({
-          nextQuestion
+          nextQuestion,
+          sessionId: interviewId
         });
     } catch (error) {
         console.error('Error in respondInterview:', error);
         res.status(500).json({ error: 'Failed to generate next question' });
     }
+  }
+
+  // Helper: Extract questions and answers from message history
+  private extractQuestionsAnswers(messages: Message[]): any[] {
+    const questionsAnswers = [];
+    
+    for (let i = 0; i < messages.length; i++) {
+      if (messages[i].role === 'assistant') {
+        // This is a question
+        const question = messages[i].content;
+        
+        // Find the corresponding answer (next user message)
+        let answer = '';
+        if (i + 1 < messages.length && messages[i + 1].role === 'user') {
+          answer = messages[i + 1].content;
+        }
+        
+        if (question && answer) {
+          questionsAnswers.push({
+            question,
+            answer,
+            feedback: '',
+            score: 0
+          });
+        }
+      }
+    }
+    
+    return questionsAnswers;
   }
 }
 

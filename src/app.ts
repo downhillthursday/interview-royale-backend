@@ -3,6 +3,7 @@ import cors from 'cors';
 import { json } from 'body-parser';
 import { setInterviewRoutes } from './routes/interviewRoutes';
 import { setResultsRoutes } from './routes/resultsRoutes';
+import { setSessionRoutes } from './routes/sessionRoutes';
 import errorHandler from './middleware/errorHandler';
 
 const app = express();
@@ -17,6 +18,7 @@ app.get('/', (_, res) => {
 const apiRouter = express.Router();
 setInterviewRoutes(apiRouter);
 setResultsRoutes(apiRouter);
+setSessionRoutes(apiRouter);
 
 app.use('/api', apiRouter);
 app.use(errorHandler);
