@@ -5,6 +5,7 @@ import path from 'path';
 import { setInterviewRoutes } from './routes/interviewRoutes';
 import { setResultsRoutes } from './routes/resultsRoutes';
 import { setSessionRoutes } from './routes/sessionRoutes';
+import { setBugReportRoutes } from './routes/bugReportRoutes';
 import userRoutes from './routes/userRoutes';
 import errorHandler from './middleware/errorHandler';
 
@@ -24,6 +25,7 @@ const apiRouter = express.Router();
 setInterviewRoutes(apiRouter);
 setResultsRoutes(apiRouter);
 setSessionRoutes(apiRouter);
+setBugReportRoutes(apiRouter);
 
 app.use('/api', apiRouter);
 app.use('/api/users', userRoutes);
