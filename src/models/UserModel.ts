@@ -12,6 +12,8 @@ export interface IUser extends Document {
   resume: {
     status: string;
     fileName: string;
+    storedFileName: string;
+    url: string;
     uploadedAt: string;
   };
   socialLinks: {
@@ -48,6 +50,8 @@ const userSchema = new Schema<IUser>(
     resume: {
       status: { type: String, default: 'none' },
       fileName: { type: String, default: '' },
+      storedFileName: { type: String, default: '' },
+      url: { type: String, default: '' },
       uploadedAt: { type: String, default: '' },
     },
     socialLinks: {

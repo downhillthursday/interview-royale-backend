@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { json } from 'body-parser';
 import path from 'path';
+import fs from 'fs';
 import { setInterviewRoutes } from './routes/interviewRoutes';
 import { setResultsRoutes } from './routes/resultsRoutes';
 import { setSessionRoutes } from './routes/sessionRoutes';
@@ -10,12 +11,16 @@ import userRoutes from './routes/userRoutes';
 import errorHandler from './middleware/errorHandler';
 
 const app = express();
+const uploadsPath = path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadsPath)) {
+  fs.mkdirSync(uploadsPath, { recursive: true });
+}
 
 app.use(cors());
 app.use(json());
 
 // Serve static files from the uploads directory
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/uploads', express.static(uploadsPath));
 
 app.get('/', (_, res) => {
   res.send('Interview Royale Backend Running');
