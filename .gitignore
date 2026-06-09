@@ -1,6 +1,6 @@
 # Node dependencies
 /node_modules/
-
+/uploads/
 # Environment variables
 .env
 .env.local
