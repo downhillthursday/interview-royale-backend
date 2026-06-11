@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { InterviewSessionModel } from '../models/InterviewSessionModel';
+import { UserModel } from '../models/UserModel';
 import { v4 as uuidv4 } from 'uuid';
 import Groq from 'groq-sdk';
 
@@ -157,6 +158,68 @@ class SessionController {
       session.status = 'completed';
       session.completedAt = new Date();
       await session.save();
+
+      // Update User Streak
+      if (!session.userId.startsWith('guest-')) {
+        try {
+          const completedSessions = await InterviewSessionModel.find({ 
+            userId: session.userId, 
+            status: 'completed' 
+          });
+          
+          if (completedSessions.length > 0) {
+            const dates = completedSessions
+              .filter((s: any) => s.createdAt)
+              .map((s: any) => new Date(s.createdAt).toDateString());
+            
+            const uniqueDates = [...new Set(dates)]
+              .map((d) => new Date(d))
+              .sort((a, b) => b.getTime() - a.getTime());
+
+            let currentStreak = 0;
+            if (uniqueDates.length > 0) {
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              const yesterday = new Date(today);
+              yesterday.setDate(yesterday.getDate() - 1);
+
+              let expectedDate = today;
+
+              if (uniqueDates[0].getTime() === today.getTime()) {
+                currentStreak = 1;
+                expectedDate = yesterday;
+              } else if (uniqueDates[0].getTime() === yesterday.getTime()) {
+                currentStreak = 1;
+                expectedDate = new Date(yesterday);
+                expectedDate.setDate(expectedDate.getDate() - 1);
+              }
+
+              if (currentStreak > 0) {
+                for (let i = 1; i < uniqueDates.length; i++) {
+                  if (uniqueDates[i].getTime() === expectedDate.getTime()) {
+                    currentStreak++;
+                    expectedDate.setDate(expectedDate.getDate() - 1);
+                  } else {
+                    break;
+                  }
+                }
+              }
+            }
+            
+            const user = await UserModel.findOne({ userId: session.userId });
+            if (user) {
+              user.currentStreak = currentStreak;
+              if (currentStreak > user.longestStreak) {
+                user.longestStreak = currentStreak;
+              }
+              user.totalInterviews = completedSessions.length;
+              await user.save();
+            }
+          }
+        } catch (streakError) {
+          console.error('Error updating user streak:', streakError);
+        }
+      }
 
       res.json({
         success: true,
