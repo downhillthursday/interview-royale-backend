@@ -5,6 +5,8 @@ export interface InterviewSession {
 
   role: string;
   keyFocusArea: string;
+  interviewFocus: string;
+  technology: string;
   difficulty: string;
 
   status: 'active' | 'completed';

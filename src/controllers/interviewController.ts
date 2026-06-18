@@ -3,11 +3,15 @@ import { v4 as uuidv4 } from 'uuid';
 import { InterviewSession, Message, sessions, sessionMessages } from '../models/interviewSession';
 import { InterviewSessionModel } from '../models/InterviewSessionModel';
 import Groq from 'groq-sdk';
+import { normalizeInterviewConfig } from '../utils';
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-const getSystemPrompt = (role: string, keyFocusArea: string, difficulty: string) => {
-    return `You are an expert technical interviewer for a ${role} position focusing on ${keyFocusArea}. The difficulty level is ${difficulty}. 
+const getSystemPrompt = (interviewFocus: string, technology: string, difficulty: string) => {
+    const focus = interviewFocus || 'the selected technical area';
+    const stack = technology || 'the selected technologies';
+
+    return `You are an expert technical interviewer for the selected interview focus: ${focus}. The selected technology stack is: ${stack}. The selected interview focus and technology represent the candidate's chosen technical area. Generate interview questions specifically around these topics. The difficulty level is ${difficulty}.
 Ask clear, concise, and professional interview questions. 
 Evaluate the candidate's answers and ask follow-up questions if necessary, or move on to the next topic. 
 Only ask one question at a time. Do not provide the answer to your own questions. Keep your responses brief and conversational.`;
@@ -15,11 +19,11 @@ Only ask one question at a time. Do not provide the answer to your own questions
 
 class InterviewController {
   public async startInterview(req: Request, res: Response): Promise<void> {
-    const { role, keyFocusArea, difficulty, userId } = req.body;
-    
-    // Validate request
-    if (!role || !keyFocusArea) {
-      res.status(400).json({ error: 'role and keyFocusArea are required' });
+    const config = normalizeInterviewConfig(req.body);
+    const { interviewFocus, technology, role, keyFocusArea, difficulty, userId } = config;
+
+    if (!interviewFocus || !technology) {
+      res.status(400).json({ error: 'interviewFocus and technology are required' });
       return;
     }
 
@@ -33,6 +37,8 @@ class InterviewController {
       totalQuestions: 5, // A limit of 5 questions for the session
       role,
       keyFocusArea,
+      interviewFocus,
+      technology,
       difficulty: sessionDifficulty,
       status: 'active'
     };
@@ -42,7 +48,7 @@ class InterviewController {
     try {
         const chatCompletion = await groq.chat.completions.create({
             messages: [
-                { role: 'system', content: getSystemPrompt(role, keyFocusArea, sessionDifficulty) },
+                { role: 'system', content: getSystemPrompt(interviewFocus, technology, sessionDifficulty) },
                 { role: 'user', content: 'Hi, I am ready for the interview. Please ask the first question.' }
             ],
             model: 'openai/gpt-oss-120b',
@@ -65,6 +71,8 @@ class InterviewController {
           userId: sessionUserId,
           role,
           keyFocusArea,
+          interviewFocus,
+          technology,
           difficulty: sessionDifficulty,
           status: 'active',
           questionsAnswers: []
@@ -146,7 +154,7 @@ class InterviewController {
 
         const chatCompletion = await groq.chat.completions.create({
             messages: [
-                { role: 'system', content: getSystemPrompt(session.role, session.keyFocusArea, session.difficulty) },
+                { role: 'system', content: getSystemPrompt(session.interviewFocus || session.role || '', session.technology || session.keyFocusArea || '', session.difficulty) },
                 { role: 'user', content: 'Hi, I am ready for the interview. Please ask the first question.' },
                 ...history
             ],

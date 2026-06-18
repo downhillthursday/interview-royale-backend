@@ -15,7 +15,14 @@ export class UserController {
         user = new UserModel({ userId });
         await user.save();
       }
-      res.status(200).json(user);
+
+      const profile = user.toObject ? user.toObject() : { ...user };
+      res.status(200).json({
+        ...profile,
+        skills: profile.primarySkills ?? profile.skills ?? [],
+        tools: profile.technologies ?? profile.tools ?? [],
+        profilePictureUrl: profile.photoURL ?? profile.profilePictureUrl ?? '',
+      });
     } catch (error) {
       console.error('Error fetching user profile:', error);
       res.status(500).json({ error: 'Internal server error' });
@@ -25,9 +32,26 @@ export class UserController {
   public async updateProfile(req: Request, res: Response): Promise<void> {
     try {
       const { userId } = req.params;
-      const updates = req.body;
+      const updates = { ...req.body };
+
+      if (updates.skills && !updates.primarySkills) {
+        updates.primarySkills = updates.skills;
+      }
+      if (updates.tools && !updates.technologies) {
+        updates.technologies = updates.tools;
+      }
+      if (updates.profilePictureUrl && !updates.photoURL) {
+        updates.photoURL = updates.profilePictureUrl;
+      }
+
       let user = await UserModel.findOneAndUpdate({ userId }, updates, { new: true, upsert: true });
-      res.status(200).json(user);
+      const profile = user?.toObject ? user.toObject() : { ...user };
+      res.status(200).json({
+        ...profile,
+        skills: profile.primarySkills ?? profile.skills ?? [],
+        tools: profile.technologies ?? profile.tools ?? [],
+        profilePictureUrl: profile.photoURL ?? profile.profilePictureUrl ?? '',
+      });
     } catch (error) {
       console.error('Error updating user profile:', error);
       res.status(500).json({ error: 'Internal server error' });
@@ -43,7 +67,7 @@ export class UserController {
       }
       const photoURL = `${getBaseUrl()}/uploads/${req.file.filename}`;
       const user = await UserModel.findOneAndUpdate({ userId }, { photoURL }, { new: true, upsert: true });
-      res.status(200).json({ success: true, photoURL, user });
+      res.status(200).json({ success: true, photoURL, profilePictureUrl: photoURL, user });
     } catch (error) {
       console.error('Error uploading photo:', error);
       res.status(500).json({ error: 'Internal server error' });

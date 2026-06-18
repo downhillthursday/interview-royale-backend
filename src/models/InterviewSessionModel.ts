@@ -13,6 +13,8 @@ export interface IInterviewSession extends Document {
   role: string;
   difficulty: string;
   keyFocusArea: string;
+  interviewFocus: string;
+  technology: string;
   status: 'active' | 'completed';
   startedAt: Date;
   completedAt?: Date;
@@ -43,9 +45,11 @@ const interviewSessionSchema = new Schema<IInterviewSession>(
   {
     sessionId: { type: String, required: true, unique: true, index: true },
     userId: { type: String, required: true, index: true },
-    role: { type: String, required: true },
+    role: { type: String, default: '' },
     difficulty: { type: String, required: true },
-    keyFocusArea: { type: String, required: true },
+    keyFocusArea: { type: String, default: '' },
+    interviewFocus: { type: String, default: '' },
+    technology: { type: String, default: '' },
     status: { type: String, enum: ['active', 'completed'], default: 'active' },
     startedAt: { type: Date, default: Date.now },
     completedAt: { type: Date },

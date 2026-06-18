@@ -3,6 +3,7 @@ import { InterviewSessionModel } from '../models/InterviewSessionModel';
 import { UserModel } from '../models/UserModel';
 import { v4 as uuidv4 } from 'uuid';
 import Groq from 'groq-sdk';
+import { normalizeInterviewConfig } from '../utils';
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -10,10 +11,11 @@ class SessionController {
   // Create a new interview session
   public async createSession(req: Request, res: Response): Promise<void> {
     try {
-      const { role, keyFocusArea, difficulty, userId } = req.body;
+      const config = normalizeInterviewConfig(req.body);
+      const { interviewFocus, technology, role, keyFocusArea, difficulty, userId } = config;
 
-      if (!role || !keyFocusArea) {
-        res.status(400).json({ error: 'role and keyFocusArea are required' });
+      if (!interviewFocus || !technology) {
+        res.status(400).json({ error: 'interviewFocus and technology are required' });
         return;
       }
 
@@ -25,6 +27,8 @@ class SessionController {
         userId: sessionUserId,
         role,
         keyFocusArea,
+        interviewFocus,
+        technology,
         difficulty: difficulty || 'Intermediate',
         status: 'active',
         questionsAnswers: []
@@ -107,8 +111,8 @@ class SessionController {
 
       // Generate feedback using Groq
       const feedbackPrompt = this.buildFeedbackPrompt(
-        session.role,
-        session.keyFocusArea,
+        session.interviewFocus || session.role || '',
+        session.technology || session.keyFocusArea || '',
         session.difficulty,
         session.questionsAnswers
       );
@@ -235,8 +239,8 @@ class SessionController {
 
   // Helper: Build feedback prompt for Groq
   private buildFeedbackPrompt(
-    role: string,
-    keyFocusArea: string,
+    interviewFocus: string,
+    technology: string,
     difficulty: string,
     questionsAnswers: any[]
   ): string {
@@ -250,8 +254,9 @@ class SessionController {
     return `You are an expert technical interviewer evaluating an interview transcript.
 
 Interview Details:
-- Role: ${role}
-- Focus Area: ${keyFocusArea}
+- Interview Focus: ${interviewFocus}
+- Technology: ${technology}
+The selected interview focus and technology represent the candidate's chosen technical area. Generate feedback specifically for these topics.
 - Difficulty Level: ${difficulty}
 
 Interview Transcript:
