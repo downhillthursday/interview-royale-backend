@@ -9,7 +9,7 @@ const uploadsDir = path.join(__dirname, '../../uploads');
 export class UserController {
   public async getProfile(req: Request, res: Response): Promise<void> {
     try {
-      const { userId } = req.params;
+      const userId = (req as any).user.uid;
       let user = await UserModel.findOne({ userId });
       if (!user) {
         user = new UserModel({ userId });
@@ -31,7 +31,7 @@ export class UserController {
 
   public async updateProfile(req: Request, res: Response): Promise<void> {
     try {
-      const { userId } = req.params;
+      const userId = (req as any).user.uid;
       const updates = { ...req.body };
 
       if (updates.skills && !updates.primarySkills) {
@@ -60,7 +60,7 @@ export class UserController {
 
   public async uploadPhoto(req: Request, res: Response): Promise<void> {
     try {
-      const { userId } = req.params;
+      const userId = (req as any).user.uid;
       if (!req.file) {
         res.status(400).json({ error: 'No file uploaded' });
         return;
@@ -76,7 +76,7 @@ export class UserController {
 
   public async uploadResume(req: Request, res: Response): Promise<void> {
     try {
-      const { userId } = req.params;
+      const userId = (req as any).user.uid;
       if (!req.file) {
         res.status(400).json({ error: 'No resume file uploaded' });
         return;
@@ -111,7 +111,7 @@ export class UserController {
 
   public async getResume(req: Request, res: Response): Promise<void> {
     try {
-      const { userId } = req.params;
+      const userId = (req as any).user.uid;
       const user = await UserModel.findOne({ userId });
       if (!user || !user.resume?.url) {
         res.status(404).json({ error: 'Resume not found' });
@@ -126,7 +126,7 @@ export class UserController {
 
   public async deleteResume(req: Request, res: Response): Promise<void> {
     try {
-      const { userId } = req.params;
+      const userId = (req as any).user.uid;
       const user = await UserModel.findOne({ userId });
       if (!user) {
         res.status(404).json({ error: 'User not found' });

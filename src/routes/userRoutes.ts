@@ -52,9 +52,9 @@ const photoUpload = multer({
   },
 });
 
-router.get('/:userId', userController.getProfile.bind(userController));
-router.put('/:userId', userController.updateProfile.bind(userController));
-router.post('/:userId/photo', photoUpload.single('photo'), userController.uploadPhoto.bind(userController));
+router.get('/:userId', authenticateUser, userController.getProfile.bind(userController));
+router.put('/:userId', authenticateUser, userController.updateProfile.bind(userController));
+router.post('/:userId/photo', authenticateUser, photoUpload.single('photo'), userController.uploadPhoto.bind(userController));
 router.post('/:userId/resume', authenticateUser, resumeUpload.single('resume'), userController.uploadResume.bind(userController));
 router.put('/:userId/resume', authenticateUser, resumeUpload.single('resume'), userController.uploadResume.bind(userController));
 router.get('/:userId/resume', authenticateUser, userController.getResume.bind(userController));
