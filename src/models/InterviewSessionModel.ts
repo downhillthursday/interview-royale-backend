@@ -7,6 +7,12 @@ export interface IQuestionAnswer {
   score?: number;
 }
 
+export interface IMessage {
+  id?: string;
+  role: 'assistant' | 'user';
+  content: string;
+}
+
 export interface IInterviewSession extends Document {
   sessionId: string;
   userId: string; // Can be temporary string if no auth, or user._id if auth exists
@@ -30,6 +36,9 @@ export interface IInterviewSession extends Document {
   strengths?: string[];
   weaknesses?: string[];
   questionsAnswers: IQuestionAnswer[];
+  messages: IMessage[];
+  currentQuestionNumber: number;
+  totalQuestions: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -64,7 +73,14 @@ const interviewSessionSchema = new Schema<IInterviewSession>(
     summary: { type: String },
     strengths: [{ type: String }],
     weaknesses: [{ type: String }],
-    questionsAnswers: [questionAnswerSchema]
+    questionsAnswers: [questionAnswerSchema],
+    messages: [{
+      id: { type: String },
+      role: { type: String, enum: ['assistant', 'user'], required: true },
+      content: { type: String, required: true }
+    }],
+    currentQuestionNumber: { type: Number, default: 0 },
+    totalQuestions: { type: Number, default: 5 }
   },
   {
     timestamps: true
