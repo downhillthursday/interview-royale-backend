@@ -11,10 +11,15 @@ export interface IUser extends Document {
   photoURL: string;
   resume: {
     status: string;
+    originalName: string;
+    storedName: string;
     fileName: string;
     storedFileName: string;
     url: string;
+    mimeType: string;
+    size: number;
     uploadedAt: string;
+    storagePath: string;
   };
   socialLinks: {
     github: string;
@@ -49,10 +54,15 @@ const userSchema = new Schema<IUser>(
     photoURL: { type: String, default: '' },
     resume: {
       status: { type: String, default: 'none' },
+      originalName: { type: String, default: '' },
+      storedName: { type: String, default: '' },
       fileName: { type: String, default: '' },
       storedFileName: { type: String, default: '' },
       url: { type: String, default: '' },
+      mimeType: { type: String, default: '' },
+      size: { type: Number, default: 0 },
       uploadedAt: { type: String, default: '' },
+      storagePath: { type: String, default: '' },
     },
     socialLinks: {
       github: { type: String, default: '' },

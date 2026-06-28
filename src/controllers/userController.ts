@@ -1,10 +1,53 @@
 import { Request, Response } from 'express';
+import { createReadStream } from 'fs';
 import fs from 'fs/promises';
 import path from 'path';
 import { UserModel } from '../models/UserModel';
+import {
+  buildStoredResumeName,
+  ensureResumeStorageDir,
+  isPdfBuffer,
+  RESUME_STORAGE_DIR,
+  sanitizeFileName,
+} from '../utils/resumeUpload';
 
 const getBaseUrl = () => process.env.BASE_URL || `http://localhost:${process.env.PORT || 5000}`;
 const uploadsDir = path.join(__dirname, '../../uploads');
+
+const buildResumeUrl = (userId: string) => `${getBaseUrl()}/api/resumes/${userId}/download`;
+
+const emptyResume = () => ({
+  status: 'none',
+  originalName: '',
+  storedName: '',
+  fileName: '',
+  storedFileName: '',
+  url: '',
+  mimeType: '',
+  size: 0,
+  uploadedAt: '',
+  storagePath: '',
+});
+
+const deleteFileIfExists = async (filePath: string | undefined): Promise<void> => {
+  if (!filePath) {
+    return;
+  }
+
+  try {
+    await fs.unlink(filePath);
+  } catch (err: any) {
+    if (err?.code !== 'ENOENT') {
+      console.warn('Could not delete file:', filePath, err);
+    }
+  }
+};
+
+const isWithinResumeStorage = (filePath: string): boolean => {
+  const resolvedStorageDir = path.resolve(RESUME_STORAGE_DIR) + path.sep;
+  const resolvedFilePath = path.resolve(filePath);
+  return resolvedFilePath.startsWith(resolvedStorageDir);
+};
 
 export class UserController {
   public async getProfile(req: Request, res: Response): Promise<void> {
@@ -19,9 +62,9 @@ export class UserController {
       const profile = user.toObject ? user.toObject() : { ...user };
       res.status(200).json({
         ...profile,
-        skills: profile.primarySkills ?? profile.skills ?? [],
-        tools: profile.technologies ?? profile.tools ?? [],
-        profilePictureUrl: profile.photoURL ?? profile.profilePictureUrl ?? '',
+        skills: profile.primarySkills ?? [],
+        tools: profile.technologies ?? [],
+        profilePictureUrl: profile.photoURL ?? '',
       });
     } catch (error) {
       console.error('Error fetching user profile:', error);
@@ -48,9 +91,9 @@ export class UserController {
       const profile = user?.toObject ? user.toObject() : { ...user };
       res.status(200).json({
         ...profile,
-        skills: profile.primarySkills ?? profile.skills ?? [],
-        tools: profile.technologies ?? profile.tools ?? [],
-        profilePictureUrl: profile.photoURL ?? profile.profilePictureUrl ?? '',
+        skills: profile.primarySkills ?? [],
+        tools: profile.technologies ?? [],
+        profilePictureUrl: profile.photoURL ?? '',
       });
     } catch (error) {
       console.error('Error updating user profile:', error);
@@ -75,35 +118,67 @@ export class UserController {
   }
 
   public async uploadResume(req: Request, res: Response): Promise<void> {
+    let newResumePath = '';
     try {
       const userId = (req as any).user.uid;
+      const routeUserId = req.params.userId;
+
+      if (routeUserId !== userId) {
+        res.status(403).json({ error: 'You can only upload a resume for your own profile' });
+        return;
+      }
+
       if (!req.file) {
         res.status(400).json({ error: 'No resume file uploaded' });
         return;
       }
 
-      const existingUser = await UserModel.findOne({ userId });
-      if (existingUser && existingUser.resume?.storedFileName) {
-        const existingResumePath = path.join(uploadsDir, existingUser.resume.storedFileName);
-        try {
-          await fs.unlink(existingResumePath);
-        } catch (err) {
-          console.warn('Could not delete old resume file:', existingResumePath, err);
-        }
+      if (!req.file.buffer || req.file.buffer.length === 0 || req.file.size === 0) {
+        res.status(400).json({ error: 'Resume file is empty' });
+        return;
       }
 
-      const resumeURL = `${getBaseUrl()}/uploads/${req.file.filename}`;
+      if (!isPdfBuffer(req.file.buffer)) {
+        res.status(415).json({ error: 'Only valid PDF resumes are allowed' });
+        return;
+      }
+
+      await ensureResumeStorageDir();
+
+      const existingUser = await UserModel.findOne({ userId });
+      const existingResumePath = existingUser?.resume?.storagePath;
+
+      const storedName = buildStoredResumeName();
+      newResumePath = path.join(RESUME_STORAGE_DIR, storedName);
+      const originalName = sanitizeFileName(req.file.originalname || 'resume.pdf');
+
+      await fs.writeFile(newResumePath, req.file.buffer);
+
       const resume = {
         status: 'uploaded',
-        fileName: req.file.originalname,
-        storedFileName: req.file.filename,
-        url: resumeURL,
+        originalName,
+        storedName,
+        fileName: originalName,
+        storedFileName: storedName,
+        url: buildResumeUrl(userId),
+        mimeType: 'application/pdf',
+        size: req.file.size,
         uploadedAt: new Date().toISOString(),
+        storagePath: newResumePath,
       };
 
-      const user = await UserModel.findOneAndUpdate({ userId }, { resume }, { new: true, upsert: true });
+      const user = existingUser ?? new UserModel({ userId });
+      user.resume = resume;
+      await user.save();
+
+      if (existingResumePath && existingResumePath !== newResumePath) {
+        await deleteFileIfExists(existingResumePath);
+      }
+
+      const resumeURL = resume.url;
       res.status(200).json({ success: true, resumeURL, user });
     } catch (error) {
+      await deleteFileIfExists(newResumePath);
       console.error('Error uploading resume:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
@@ -112,21 +187,91 @@ export class UserController {
   public async getResume(req: Request, res: Response): Promise<void> {
     try {
       const userId = (req as any).user.uid;
+      const routeUserId = req.params.userId;
+
+      if (routeUserId !== userId) {
+        res.status(403).json({ error: 'You can only access your own resume' });
+        return;
+      }
+
       const user = await UserModel.findOne({ userId });
       if (!user || !user.resume?.url) {
         res.status(404).json({ error: 'Resume not found' });
         return;
       }
-      res.status(200).json({ success: true, resume: user.resume });
+
+      const resume = {
+        ...emptyResume(),
+        ...user.resume,
+        url: user.resume.url || buildResumeUrl(userId),
+      };
+
+      res.status(200).json({ success: true, resume });
     } catch (error) {
       console.error('Error fetching resume:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   }
 
+  public async downloadResume(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = (req as any).user.uid;
+      const resumeId = req.params.resumeId;
+
+      if (resumeId !== userId) {
+        res.status(403).json({ error: 'You can only download your own resume' });
+        return;
+      }
+
+      const user = await UserModel.findOne({ userId });
+      if (!user?.resume?.storagePath) {
+        res.status(404).json({ error: 'Resume not found' });
+        return;
+      }
+
+      const resumePath = user.resume.storagePath;
+      if (!isWithinResumeStorage(resumePath)) {
+        res.status(400).json({ error: 'Invalid resume storage path' });
+        return;
+      }
+
+      await fs.access(resumePath);
+      const stats = await fs.stat(resumePath);
+      const downloadName = sanitizeFileName(user.resume.originalName || 'resume.pdf');
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Length', String(stats.size));
+      res.setHeader('Content-Disposition', `attachment; filename="${downloadName}"`);
+
+      const stream = createReadStream(resumePath);
+      stream.on('error', (streamError) => {
+        console.error('Error streaming resume:', streamError);
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Failed to stream resume' });
+          return;
+        }
+        res.destroy(streamError as Error);
+      });
+
+      stream.pipe(res);
+    } catch (error) {
+      console.error('Error downloading resume:', error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    }
+  }
+
   public async deleteResume(req: Request, res: Response): Promise<void> {
     try {
       const userId = (req as any).user.uid;
+      const routeUserId = req.params.userId;
+
+      if (routeUserId !== userId) {
+        res.status(403).json({ error: 'You can only delete your own resume' });
+        return;
+      }
+
       const user = await UserModel.findOne({ userId });
       if (!user) {
         res.status(404).json({ error: 'User not found' });
@@ -138,23 +283,14 @@ export class UserController {
         return;
       }
 
-      const resumePath = user.resume.storedFileName ? path.join(uploadsDir, user.resume.storedFileName) : null;
-      if (resumePath) {
-        try {
-          await fs.unlink(resumePath);
-        } catch (err) {
-          console.warn('Could not delete resume file:', resumePath, err);
-        }
-      }
+      const resumePath = user.resume.storagePath || null;
 
-      user.resume = {
-        status: 'none',
-        fileName: '',
-        storedFileName: '',
-        url: '',
-        uploadedAt: '',
-      };
+      user.resume = emptyResume();
       await user.save();
+
+      if (resumePath) {
+        await deleteFileIfExists(resumePath);
+      }
 
       res.status(200).json({ success: true, message: 'Resume deleted', user });
     } catch (error) {

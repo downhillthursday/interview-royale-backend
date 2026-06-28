@@ -3,10 +3,12 @@ import cors from 'cors';
 import { json } from 'body-parser';
 import path from 'path';
 import fs from 'fs';
+import helmet from 'helmet';
 import { setInterviewRoutes } from './routes/interviewRoutes';
 import { setResultsRoutes } from './routes/resultsRoutes';
 import { setSessionRoutes } from './routes/sessionRoutes';
 import { setBugReportRoutes } from './routes/bugReportRoutes';
+import { setResumeRoutes } from './routes/resumeRoutes';
 import userRoutes from './routes/userRoutes';
 import errorHandler from './middleware/errorHandler';
 
@@ -16,15 +18,14 @@ if (!fs.existsSync(uploadsPath)) {
   fs.mkdirSync(uploadsPath, { recursive: true });
 }
 
+app.disable('x-powered-by');
+app.use(helmet());
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id']
 }));
-app.use(json());
-
-// Serve static files from the uploads directory
-app.use('/uploads', express.static(uploadsPath));
+app.use(json({ limit: '1mb' }));
 
 app.get('/', (_, res) => {
   res.send('Interview Royale Backend Running');
@@ -35,6 +36,7 @@ setInterviewRoutes(apiRouter);
 setResultsRoutes(apiRouter);
 setSessionRoutes(apiRouter);
 setBugReportRoutes(apiRouter);
+setResumeRoutes(apiRouter);
 
 app.use('/api', apiRouter);
 app.use('/api/users', userRoutes);
