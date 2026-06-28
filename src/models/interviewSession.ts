@@ -18,6 +18,3 @@ export interface Message {
   content: string;
 }
 
-// In-memory store for Phase 5
-export const sessions: Record<string, InterviewSession> = {};
-export const sessionMessages: Record<string, Message[]> = {};
