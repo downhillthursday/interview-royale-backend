@@ -3,6 +3,7 @@
 
 # 
 /uploads/
+/private_uploads/
 
 # Environment variables
 .env
