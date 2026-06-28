@@ -52,7 +52,11 @@ const isWithinResumeStorage = (filePath: string): boolean => {
 export class UserController {
   public async getProfile(req: Request, res: Response): Promise<void> {
     try {
-      const userId = (req as any).user.uid;
+      const userId = req.user?.uid;
+      if (!userId) {
+        res.status(401).json({ error: 'Authorization required' });
+        return;
+      }
       let user = await UserModel.findOne({ userId });
       if (!user) {
         user = new UserModel({ userId });
@@ -74,7 +78,11 @@ export class UserController {
 
   public async updateProfile(req: Request, res: Response): Promise<void> {
     try {
-      const userId = (req as any).user.uid;
+      const userId = req.user?.uid;
+      if (!userId) {
+        res.status(401).json({ error: 'Authorization required' });
+        return;
+      }
       const updates = { ...req.body };
 
       if (updates.skills && !updates.primarySkills) {
@@ -103,7 +111,11 @@ export class UserController {
 
   public async uploadPhoto(req: Request, res: Response): Promise<void> {
     try {
-      const userId = (req as any).user.uid;
+      const userId = req.user?.uid;
+      if (!userId) {
+        res.status(401).json({ error: 'Authorization required' });
+        return;
+      }
       if (!req.file) {
         res.status(400).json({ error: 'No file uploaded' });
         return;
@@ -120,7 +132,11 @@ export class UserController {
   public async uploadResume(req: Request, res: Response): Promise<void> {
     let newResumePath = '';
     try {
-      const userId = (req as any).user.uid;
+      const userId = req.user?.uid;
+      if (!userId) {
+        res.status(401).json({ error: 'Authorization required' });
+        return;
+      }
       const routeUserId = req.params.userId;
 
       if (routeUserId !== userId) {
@@ -186,7 +202,11 @@ export class UserController {
 
   public async getResume(req: Request, res: Response): Promise<void> {
     try {
-      const userId = (req as any).user.uid;
+      const userId = req.user?.uid;
+      if (!userId) {
+        res.status(401).json({ error: 'Authorization required' });
+        return;
+      }
       const routeUserId = req.params.userId;
 
       if (routeUserId !== userId) {
@@ -215,7 +235,11 @@ export class UserController {
 
   public async downloadResume(req: Request, res: Response): Promise<void> {
     try {
-      const userId = (req as any).user.uid;
+      const userId = req.user?.uid;
+      if (!userId) {
+        res.status(401).json({ error: 'Authorization required' });
+        return;
+      }
       const resumeId = req.params.resumeId;
 
       if (resumeId !== userId) {
@@ -264,7 +288,11 @@ export class UserController {
 
   public async deleteResume(req: Request, res: Response): Promise<void> {
     try {
-      const userId = (req as any).user.uid;
+      const userId = req.user?.uid;
+      if (!userId) {
+        res.status(401).json({ error: 'Authorization required' });
+        return;
+      }
       const routeUserId = req.params.userId;
 
       if (routeUserId !== userId) {

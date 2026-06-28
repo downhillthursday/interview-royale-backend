@@ -25,7 +25,7 @@ export const authenticateUser = async (req: Request, res: Response, next: NextFu
     }
 
     const decodedToken = await getAuth().verifyIdToken(token);
-    (req as any).user = { uid: decodedToken.uid };
+    req.user = decodedToken;
     
     next();
   } catch (error) {

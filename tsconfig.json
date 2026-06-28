@@ -10,5 +10,8 @@
     "rootDir": "./src"
   },
   "include": ["src/**/*"],
+  "ts-node": {
+    "files": true
+  },
   "exclude": ["node_modules", "**/*.spec.ts"]
 }
