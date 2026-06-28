@@ -16,7 +16,6 @@ export const setInterviewRoutes = (app: Router) => {
   app.post(
     '/interviews/respond',
     authenticateUser,
-    groqRateLimiter,
     interviewController.respondInterview.bind(interviewController)
   );
 };
