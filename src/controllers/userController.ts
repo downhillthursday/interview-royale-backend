@@ -57,6 +57,11 @@ export class UserController {
         res.status(401).json({ error: 'Authorization required' });
         return;
       }
+      const routeUserId = req.params.userId;
+      if (routeUserId && routeUserId !== userId) {
+        res.status(403).json({ error: 'You can only access your own profile' });
+        return;
+      }
       let user = await UserModel.findOne({ userId });
       if (!user) {
         user = new UserModel({ userId });
@@ -81,6 +86,11 @@ export class UserController {
       const userId = req.user?.uid;
       if (!userId) {
         res.status(401).json({ error: 'Authorization required' });
+        return;
+      }
+      const routeUserId = req.params.userId;
+      if (routeUserId && routeUserId !== userId) {
+        res.status(403).json({ error: 'You can only update your own profile' });
         return;
       }
       const updates = { ...req.body };
@@ -114,6 +124,11 @@ export class UserController {
       const userId = req.user?.uid;
       if (!userId) {
         res.status(401).json({ error: 'Authorization required' });
+        return;
+      }
+      const routeUserId = req.params.userId;
+      if (routeUserId && routeUserId !== userId) {
+        res.status(403).json({ error: 'You can only upload a photo for your own profile' });
         return;
       }
       if (!req.file) {

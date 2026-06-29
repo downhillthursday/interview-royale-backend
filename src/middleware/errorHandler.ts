@@ -2,22 +2,36 @@ import multer from 'multer';
 import { Request, Response, NextFunction } from 'express';
 
 const errorHandler = (err: any, req: Request, res: Response, next: NextFunction) => {
-  console.error(err.stack || err);
+  console.error('Unhandled error:', err);
+
+  const sendClientError = (status: number, message: string) => {
+    return res.status(status).json({ error: message });
+  };
+
   if (err instanceof multer.MulterError) {
     if (err.code === 'LIMIT_FILE_SIZE') {
-      return res.status(413).json({ error: 'File too large. Maximum resume size is 5MB.' });
+      return sendClientError(413, 'File too large. Maximum resume size is 5MB.');
     }
-    return res.status(400).json({ error: err.message });
+    if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+      return sendClientError(400, 'Unexpected file field.');
+    }
+    return sendClientError(400, 'Invalid file upload.');
+  }
+  if (err?.type === 'entity.parse.failed' || err instanceof SyntaxError) {
+    return sendClientError(400, 'Invalid JSON payload.');
   }
   if (err?.type === 'entity.too.large') {
-    return res.status(413).json({ error: 'Request body is too large.' });
+    return sendClientError(413, 'Request body is too large.');
   }
-  if (err?.message?.includes('Only PDF') || err?.message?.includes('Only image') || err?.message?.includes('valid PDF resumes')) {
-    return res.status(400).json({ error: err.message });
+  if (err?.message?.includes('Only PDF') || err?.message?.includes('valid PDF resumes')) {
+    return sendClientError(400, 'Only valid PDF resumes are allowed.');
+  }
+  if (err?.message?.includes('Only image')) {
+    return sendClientError(400, 'Only image files are allowed for profile photos.');
   }
   res.status(500).json({
-    message: 'An unexpected error occurred',
-    error: err.message,
+    success: false,
+    message: 'Internal server error',
   });
 };
 

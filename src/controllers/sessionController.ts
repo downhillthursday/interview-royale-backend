@@ -11,8 +11,14 @@ class SessionController {
   // Create a new interview session
   public async createSession(req: Request, res: Response): Promise<void> {
     try {
+      const userId = req.user?.uid;
+      if (!userId) {
+        res.status(401).json({ error: 'Authorization required' });
+        return;
+      }
+
       const config = normalizeInterviewConfig(req.body);
-      const { interviewFocus, technology, role, keyFocusArea, difficulty, userId } = config;
+      const { interviewFocus, technology, role, keyFocusArea, difficulty } = config;
 
       if (!interviewFocus || !technology) {
         res.status(400).json({ error: 'interviewFocus and technology are required' });
@@ -20,11 +26,10 @@ class SessionController {
       }
 
       const sessionId = uuidv4();
-      const sessionUserId = userId || `guest-${uuidv4()}`;
 
       const session = new InterviewSessionModel({
         sessionId,
-        userId: sessionUserId,
+        userId,
         role,
         keyFocusArea,
         interviewFocus,
@@ -50,12 +55,23 @@ class SessionController {
   // Get a single session by ID
   public async getSession(req: Request, res: Response): Promise<void> {
     try {
+      const userId = req.user?.uid;
+      if (!userId) {
+        res.status(401).json({ error: 'Authorization required' });
+        return;
+      }
+
       const { id } = req.params;
 
       const session = await InterviewSessionModel.findOne({ sessionId: id });
 
       if (!session) {
         res.status(404).json({ error: 'Interview session not found' });
+        return;
+      }
+
+      if (session.userId !== userId) {
+        res.status(403).json({ error: 'You can only access your own interview sessions' });
         return;
       }
 
@@ -72,9 +88,20 @@ class SessionController {
   // Get all sessions for a user
   public async getUserSessions(req: Request, res: Response): Promise<void> {
     try {
-      const { userId } = req.params;
+      const userId = req.user?.uid;
+      if (!userId) {
+        res.status(401).json({ error: 'Authorization required' });
+        return;
+      }
 
-      const sessions = await InterviewSessionModel.find({ userId }).sort({ createdAt: -1 });
+      const { userId: routeUserId } = req.params;
+
+      if (routeUserId !== userId) {
+        res.status(403).json({ error: 'You can only access your own interview history' });
+        return;
+      }
+
+      const sessions = await InterviewSessionModel.find({ userId: routeUserId }).sort({ createdAt: -1 });
 
       res.json({
         success: true,
@@ -89,6 +116,12 @@ class SessionController {
   // Complete an interview session and generate feedback
   public async completeSession(req: Request, res: Response): Promise<void> {
     try {
+      const userId = req.user?.uid;
+      if (!userId) {
+        res.status(401).json({ error: 'Authorization required' });
+        return;
+      }
+
       const { id } = req.params;
       const { questionsAnswers } = req.body;
 
@@ -96,6 +129,11 @@ class SessionController {
 
       if (!session) {
         res.status(404).json({ error: 'Interview session not found' });
+        return;
+      }
+
+      if (session.userId !== userId) {
+        res.status(403).json({ error: 'You can only complete your own interview sessions' });
         return;
       }
 

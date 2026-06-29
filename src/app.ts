@@ -21,7 +21,7 @@ if (!fs.existsSync(uploadsPath)) {
 app.disable('x-powered-by');
 app.use(helmet());
 app.use(cors({
-  origin: '*',
+  origin: ['http://localhost:5000'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id']
 }));
