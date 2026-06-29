@@ -10,7 +10,7 @@ const getRateLimitKey = (req: Request): string => {
 
 export const groqRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  limit: 5,
+  limit: 10,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: getRateLimitKey,

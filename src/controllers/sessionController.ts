@@ -211,36 +211,40 @@ class SessionController {
           
           if (completedSessions.length > 0) {
             const dates = completedSessions
-              .filter((s: any) => s.createdAt)
-              .map((s: any) => new Date(s.createdAt).toDateString());
+              .filter((s: any) => s.completedAt || s.createdAt)
+              .map((s: any) => {
+                const d = new Date(s.completedAt || s.createdAt);
+                return d.toISOString().split('T')[0];
+              });
             
-            const uniqueDates = [...new Set(dates)]
-              .map((d) => new Date(d))
-              .sort((a, b) => b.getTime() - a.getTime());
+            const uniqueDates = [...new Set(dates)].sort((a, b) => b.localeCompare(a));
 
             let currentStreak = 0;
             if (uniqueDates.length > 0) {
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              const yesterday = new Date(today);
-              yesterday.setDate(yesterday.getDate() - 1);
+              const todayStr = new Date().toISOString().split('T')[0];
+              const yesterdayDate = new Date();
+              yesterdayDate.setUTCDate(yesterdayDate.getUTCDate() - 1);
+              const yesterdayStr = yesterdayDate.toISOString().split('T')[0];
 
-              let expectedDate = today;
+              let expectedDateStr = todayStr;
 
-              if (uniqueDates[0].getTime() === today.getTime()) {
+              if (uniqueDates[0] === todayStr) {
                 currentStreak = 1;
-                expectedDate = yesterday;
-              } else if (uniqueDates[0].getTime() === yesterday.getTime()) {
+                expectedDateStr = yesterdayStr;
+              } else if (uniqueDates[0] === yesterdayStr) {
                 currentStreak = 1;
-                expectedDate = new Date(yesterday);
-                expectedDate.setDate(expectedDate.getDate() - 1);
+                const dObj = new Date(yesterdayStr);
+                dObj.setUTCDate(dObj.getUTCDate() - 1);
+                expectedDateStr = dObj.toISOString().split('T')[0];
               }
 
               if (currentStreak > 0) {
                 for (let i = 1; i < uniqueDates.length; i++) {
-                  if (uniqueDates[i].getTime() === expectedDate.getTime()) {
+                  if (uniqueDates[i] === expectedDateStr) {
                     currentStreak++;
-                    expectedDate.setDate(expectedDate.getDate() - 1);
+                    const dObj = new Date(expectedDateStr);
+                    dObj.setUTCDate(dObj.getUTCDate() - 1);
+                    expectedDateStr = dObj.toISOString().split('T')[0];
                   } else {
                     break;
                   }
@@ -251,7 +255,7 @@ class SessionController {
             const user = await UserModel.findOne({ userId: session.userId });
             if (user) {
               user.currentStreak = currentStreak;
-              if (currentStreak > user.longestStreak) {
+              if (currentStreak > (user.longestStreak || 0)) {
                 user.longestStreak = currentStreak;
               }
               user.totalInterviews = completedSessions.length;
