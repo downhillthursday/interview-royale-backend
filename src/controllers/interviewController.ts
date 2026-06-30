@@ -6,11 +6,11 @@ import { normalizeInterviewConfig } from '../utils';
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-const getSystemPrompt = (interviewFocus: string, technology: string, difficulty: string) => {
+const getSystemPrompt = (interviewFocus: string, technology: string, difficulty: string, numberOfQuestions: number) => {
   const focus = interviewFocus || 'the selected technical area';
   const stack = technology || 'the selected technologies';
 
-  return `You are an expert technical interviewer for the selected interview focus: ${focus}. The selected technology stack is: ${stack}. The selected interview focus and technology represent the candidate's chosen technical area. Generate interview questions specifically around these topics. The difficulty level is ${difficulty}.
+  return `You are an expert technical interviewer for the selected interview focus: ${focus}. The selected technology stack is: ${stack}. The selected interview focus and technology represent the candidate's chosen technical area. Generate exactly ${numberOfQuestions} interview questions in total, one at a time, specifically around these topics. The difficulty level is ${difficulty}.
    If the difficulty is set to easy or junior, make the interview more conceptual and easy. 
 Ask clear, concise, and professional interview questions. 
 Evaluate the candidate's answers and ask follow-up questions if necessary, or move on to the next topic. 
@@ -20,7 +20,7 @@ Only ask one question at a time. Do not provide the answer to your own questions
 class InterviewController {
   public async startInterview(req: Request, res: Response): Promise<void> {
     const config = normalizeInterviewConfig(req.body);
-    const { interviewFocus, technology, role, keyFocusArea, difficulty, userId } = config;
+    const { interviewFocus, technology, role, keyFocusArea, difficulty, numberOfQuestions, userId } = config;
 
     if (!interviewFocus || !technology) {
       res.status(400).json({ error: 'interviewFocus and technology are required' });
@@ -34,7 +34,7 @@ class InterviewController {
     try {
       const chatCompletion = await groq.chat.completions.create({
         messages: [
-          { role: 'system', content: getSystemPrompt(interviewFocus, technology, sessionDifficulty) },
+          { role: 'system', content: getSystemPrompt(interviewFocus, technology, sessionDifficulty, numberOfQuestions) },
           { role: 'user', content: 'Hi, I am ready for the interview. Please ask the first question.' }
         ],
         model: 'openai/gpt-oss-120b',
@@ -53,7 +53,7 @@ class InterviewController {
         difficulty: sessionDifficulty,
         status: 'active',
         currentQuestionNumber: 0,
-        totalQuestions: 5,
+        totalQuestions: numberOfQuestions,
         questionsAnswers: [],
         messages: [
           {
@@ -128,7 +128,7 @@ class InterviewController {
 
       const chatCompletion = await groq.chat.completions.create({
         messages: [
-          { role: 'system', content: getSystemPrompt(session.interviewFocus || session.role || '', session.technology || session.keyFocusArea || '', session.difficulty) },
+          { role: 'system', content: getSystemPrompt(session.interviewFocus || session.role || '', session.technology || session.keyFocusArea || '', session.difficulty, session.totalQuestions || 5) },
           { role: 'user', content: 'Hi, I am ready for the interview. Please ask the first question.' },
           ...history
         ],

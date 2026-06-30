@@ -18,7 +18,7 @@ class SessionController {
       }
 
       const config = normalizeInterviewConfig(req.body);
-      const { interviewFocus, technology, role, keyFocusArea, difficulty } = config;
+      const { interviewFocus, technology, role, keyFocusArea, difficulty, numberOfQuestions } = config;
 
       if (!interviewFocus || !technology) {
         res.status(400).json({ error: 'interviewFocus and technology are required' });
@@ -35,6 +35,7 @@ class SessionController {
         interviewFocus,
         technology,
         difficulty: difficulty || 'Intermediate',
+        totalQuestions: numberOfQuestions,
         status: 'active',
         questionsAnswers: []
       });
