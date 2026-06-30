@@ -9,6 +9,7 @@ import { setResultsRoutes } from './routes/resultsRoutes';
 import { setSessionRoutes } from './routes/sessionRoutes';
 import { setBugReportRoutes } from './routes/bugReportRoutes';
 import { setResumeRoutes } from './routes/resumeRoutes';
+import { setHealthRoutes } from './routes/healthRoutes';
 import userRoutes from './routes/userRoutes';
 import errorHandler from './middleware/errorHandler';
 
@@ -37,6 +38,7 @@ app.get('/', (_, res) => {
 });
 
 const apiRouter = express.Router();
+setHealthRoutes(apiRouter);
 setInterviewRoutes(apiRouter);
 setResultsRoutes(apiRouter);
 setSessionRoutes(apiRouter);
