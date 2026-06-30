@@ -20,8 +20,13 @@ if (!fs.existsSync(uploadsPath)) {
 
 app.disable('x-powered-by');
 app.use(helmet());
+const allowedOrigins = ['http://localhost:5173', 'http://localhost:5000'];
+if (process.env.FRONTEND_URL) {
+  allowedOrigins.push(...process.env.FRONTEND_URL.split(','));
+}
+
 app.use(cors({
-  origin: ['http://localhost:5173','http://localhost:5000'],
+  origin: allowedOrigins,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-user-id']
 }));
